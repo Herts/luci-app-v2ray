@@ -248,12 +248,14 @@ add_v2ray_rules() {
 	)"
 
 	# ToutyRater/v2ray-guide#24
+	ipset -R < /etc/v2ray/custom.conf
 	iptables-restore --noflush <<-EOF 2>/dev/null
 		*nat
 		:V2RAY -
 		$(for s in $server_ips ; do echo "-A V2RAY -d $s -j RETURN" ; done)
 		$(for r in $reserved_ips ; do echo "-A V2RAY -d $r -j RETURN" ; done)
 		$(test -n "$proxy_router" && echo "-A V2RAY -p tcp -j RETURN -m mark --mark 0xff")
+		-A V2RAY -m set --match-set user-custom dst -j RETURN
 		-A V2RAY -p tcp -j REDIRECT --to-ports $port
 		-A PREROUTING -p tcp -j V2RAY
 		$(test -n "$proxy_router" && echo "-A OUTPUT -p tcp -j V2RAY")
@@ -269,6 +271,7 @@ add_v2ray_rules() {
 			d_port="--dport 53"
 		fi
 
+    # Herts TODO: ipset to udp
 		iptables-restore --noflush <<-EOF 2>/dev/null
 			*mangle
 			:V2RAY -
@@ -290,6 +293,9 @@ clear_v2ray_rules() {
 	ip route flush table 100
 	ip route del local default dev lo table 100 2>/dev/null
 	while ip rule del fwmark 1 lookup 100 2>/dev/null ; do true ; done
+
+  # clear ipset rules
+	ipset destroy user-custom -quiet
 }
 
 add_dns_settings() {
